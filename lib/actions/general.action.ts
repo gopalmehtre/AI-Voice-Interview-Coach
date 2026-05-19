@@ -1,6 +1,6 @@
 "use server";
 
-import { generateObject, fallback } from "ai";
+import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
 import { prisma } from "@/lib/db";
@@ -27,13 +27,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
       )
       .join("");
 
-    const { object } = await generateObject({
-      model: fallback([
-        gemini("gemini-2.0-flash-001", { structuredOutputs: false }),
-        groq("llama-3.3-70b-versatile", { structuredOutputs: false }),
-      ]),
-      schema: feedbackSchema,
-      prompt: `
+    const prompt = `
         You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
         Transcript:
         ${formattedTranscript}
@@ -44,10 +38,44 @@ export async function createFeedback(params: CreateFeedbackParams) {
         - **Problem-Solving**: Ability to analyze problems and propose solutions.
         - **Cultural & Role Fit**: Alignment with company values and job role.
         - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
-        `,
-      system:
-        "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
-    });
+        
+        Return ONLY a valid JSON object matching this exact structure:
+        {
+          "totalScore": 85,
+          "categoryScores": [
+            { "name": "Communication Skills", "score": 80, "comment": "..." },
+            { "name": "Technical Knowledge", "score": 90, "comment": "..." },
+            { "name": "Problem Solving", "score": 85, "comment": "..." },
+            { "name": "Cultural Fit", "score": 85, "comment": "..." },
+            { "name": "Confidence and Clarity", "score": 80, "comment": "..." }
+          ],
+          "strengths": ["...", "..."],
+          "areasForImprovement": ["...", "..."],
+          "finalAssessment": "..."
+        }
+        `;
+    const system = "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. You must respond with raw JSON only.";
+
+    let object;
+    try {
+      const result = await generateText({
+        model: gemini("gemini-2.0-flash-001"),
+        prompt,
+        system,
+      });
+      // Try to strip any markdown formatting before parsing
+      const jsonStr = result.text.replace(/```json/g, "").replace(/```/g, "").trim();
+      object = JSON.parse(jsonStr);
+    } catch (e) {
+      console.warn("Gemini failed, falling back to Groq:", e);
+      const result = await generateText({
+        model: groq("llama-3.3-70b-versatile"),
+        prompt,
+        system,
+      });
+      const jsonStr = result.text.replace(/```json/g, "").replace(/```/g, "").trim();
+      object = JSON.parse(jsonStr);
+    }
 
     const feedbackData = {
       interviewId,

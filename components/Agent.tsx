@@ -51,14 +51,23 @@ const Agent = ({
       } else if (message.type === "tool-calls" || message.type === "function-call") {
         let parameters;
         let callId;
+        let functionName;
 
         if (message.type === "tool-calls") {
           const toolCall = (message as any).toolCallList?.[0];
           if (!toolCall) return;
           parameters = toolCall.function.arguments;
           callId = toolCall.id;
+          functionName = toolCall.function.name;
         } else {
           parameters = message.functionCall.parameters;
+          functionName = message.functionCall.name;
+        }
+
+        if (functionName === "endCall") {
+          setCallStatus(CallStatus.FINISHED);
+          vapi.stop();
+          return;
         }
         
         try {
@@ -228,6 +237,22 @@ const Agent = ({
           </div>
         </div>
       </div>
+
+      {type !== "generate" && questions && questions.length > 0 && callStatus === "finished" && (
+        <div className="w-full max-w-4xl mt-6 px-4">
+          <div className="bg-dark/50 backdrop-blur-sm border border-light-200/10 rounded-2xl p-6">
+            <h3 className="text-xl font-bold text-white mb-4">Interview Questions</h3>
+            <ul className="space-y-3">
+              {questions.map((q, idx) => (
+                <li key={idx} className="text-light-200/80 flex gap-3 text-left">
+                  <span className="text-primary-purple font-semibold">{idx + 1}.</span>
+                  {q}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {messages.length > 0 && (
         <div className="transcript-border">

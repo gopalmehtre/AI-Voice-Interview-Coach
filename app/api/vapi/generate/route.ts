@@ -1,4 +1,4 @@
-import { generateText, fallback } from "ai";
+import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
 import { prisma } from "@/lib/db";
@@ -18,12 +18,8 @@ export async function POST(request: Request) {
   const { type, role, level, techstack, amount, userid } = await request.json();
 
   try {
-    const { text: questions } = await generateText({
-      model: fallback([
-        gemini("gemini-2.0-flash-001"),
-        groq("llama-3.3-70b-versatile"),
-      ]),
-      prompt: `Prepare questions for a job interview.
+    let questions;
+    const prompt = `Prepare questions for a job interview.
         The job role is ${role}.
         The job experience level is ${level}.
         The tech stack used in the job is: ${techstack}.
@@ -35,8 +31,22 @@ export async function POST(request: Request) {
         ["Question 1", "Question 2", "Question 3"]
         
         Thank you! <3
-    `,
-    });
+    `;
+
+    try {
+      const result = await generateText({
+        model: gemini("gemini-2.0-flash-001"),
+        prompt,
+      });
+      questions = result.text;
+    } catch (e) {
+      console.warn("Gemini failed, falling back to Groq:", e);
+      const result = await generateText({
+        model: groq("llama-3.3-70b-versatile"),
+        prompt,
+      });
+      questions = result.text;
+    }
 
     await prisma.interview.create({
       data: {

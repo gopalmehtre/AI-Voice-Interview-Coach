@@ -145,11 +145,26 @@ Conclude the interview properly:
 Thank the candidate for their time.
 Inform them that the company will reach out soon with feedback.
 End the conversation on a polite and positive note.
+CRITICAL: Once you have asked all the questions and the candidate has provided their final answer, you MUST call the \`endCall\` tool to hang up and generate their report.
 
 
 - Be sure to be professional and polite.
 - Keep all your responses short and simple. Use official language, but be kind and welcoming.
 - This is a voice conversation, so keep your responses short, like in a real conversation. Don't ramble for too long.`,
+      },
+    ],
+    tools: [
+      {
+        type: "function",
+        messages: [],
+        function: {
+          name: "endCall",
+          description: "Terminates the mock interview session. Call this ONLY when the interview has completely concluded and you have said your goodbyes.",
+          parameters: {
+            type: "object",
+            properties: {},
+          },
+        },
       },
     ],
   },
