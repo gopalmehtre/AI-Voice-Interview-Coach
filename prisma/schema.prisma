@@ -26,6 +26,8 @@ model Interview {
   userId    String
   finalized Boolean   @default(false)
   coverImage String?
+  jdText    String?
+  resumeText String?
   createdAt DateTime  @default(now())
 
   user      User      @relation(fields: [userId], references: [id])
@@ -41,6 +43,9 @@ model Feedback {
   strengths          Json
   areasForImprovement Json
   finalAssessment    String
+  atsScore           Int?
+  resumeSuggestions  Json?
+  jobSuggestions     Json?
   createdAt          DateTime @default(now())
 
   interview Interview @relation(fields: [interviewId], references: [id])

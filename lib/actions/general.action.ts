@@ -2,14 +2,10 @@
 
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 
 import { prisma } from "@/lib/db";
 import { feedbackSchema } from "@/constants";
-
-const gemini = createOpenAI({
-  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-});
 
 const groq = createOpenAI({
   apiKey: process.env.GROQ_API_KEY,
@@ -59,7 +55,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
     let object;
     try {
       const result = await generateText({
-        model: gemini("gemini-2.0-flash-001"),
+        model: google("gemini-2.0-flash-001"),
         prompt,
         system,
       });
@@ -77,7 +73,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
       object = JSON.parse(jsonStr);
     }
 
-    const feedbackData = {
+    const feedbackData: any = {
       interviewId,
       userId,
       totalScore: object.totalScore,
@@ -87,17 +83,81 @@ export async function createFeedback(params: CreateFeedbackParams) {
       finalAssessment: object.finalAssessment,
     };
 
+    // --- ATS Score, Resume Tailoring, Job Suggestions ---
+    const interview = await prisma.interview.findUnique({
+      where: { id: interviewId },
+      select: { resumeText: true, jdText: true, role: true },
+    });
+
+    if (interview?.resumeText || interview?.jdText) {
+      const atsPrompt = `
+You are an expert ATS (Applicant Tracking System) analyzer and career advisor.
+
+${interview.resumeText ? `Here is the candidate's Resume:\n${interview.resumeText}\n` : ""}
+${interview.jdText ? `Here is the Job Description:\n${interview.jdText}\n` : ""}
+${interview.role ? `The target role is: ${interview.role}` : ""}
+
+Analyze the resume${interview.jdText ? " against the job description" : ""} and return ONLY a valid JSON object with this exact structure:
+{
+  "atsScore": 75,
+  "resumeSuggestions": [
+    "Add more quantifiable achievements to your work experience",
+    "Include relevant keywords like ...",
+    "Restructure your summary to highlight ..."
+  ],
+  "jobSuggestions": [
+    { "title": "Frontend Developer", "reason": "Your React and TypeScript skills align well" },
+    { "title": "Full Stack Engineer", "reason": "Your experience with Node.js and databases qualifies you" },
+    { "title": "UI Engineer", "reason": "Your CSS and design system knowledge is strong" }
+  ]
+}
+
+Rules:
+- atsScore is 0-100 based on how well the resume matches${interview.jdText ? " the JD" : " a typical job in the target role"}.
+- resumeSuggestions: Give 3-5 actionable, specific suggestions to improve the resume.
+- jobSuggestions: Suggest 3-5 job roles the candidate is best suited for based on their resume skills. Each must have a title and a one-sentence reason.
+- Return raw JSON only, no markdown.
+`;
+
+      try {
+        let atsObject;
+        try {
+          const atsResult = await generateText({
+            model: google("gemini-2.0-flash-001"),
+            prompt: atsPrompt,
+            system: "You are an expert ATS analyzer and career advisor. Respond with raw JSON only.",
+          });
+          const atsJson = atsResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
+          atsObject = JSON.parse(atsJson);
+        } catch (e) {
+          console.warn("Gemini ATS failed, falling back to Groq:", e);
+          const atsResult = await generateText({
+            model: groq("llama-3.3-70b-versatile"),
+            prompt: atsPrompt,
+            system: "You are an expert ATS analyzer and career advisor. Respond with raw JSON only.",
+          });
+          const atsJson = atsResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
+          atsObject = JSON.parse(atsJson);
+        }
+
+        feedbackData.atsScore = atsObject.atsScore;
+        feedbackData.resumeSuggestions = atsObject.resumeSuggestions;
+        feedbackData.jobSuggestions = atsObject.jobSuggestions;
+      } catch (atsError) {
+        console.error("Error generating ATS analysis:", atsError);
+        // Continue without ATS data — the core feedback is still saved
+      }
+    }
+
     let feedback;
 
     if (feedbackId) {
-      // Update existing feedback
       feedback = await prisma.feedback.upsert({
         where: { id: feedbackId },
         update: feedbackData,
         create: { id: feedbackId, ...feedbackData },
       });
     } else {
-      // Create new feedback
       feedback = await prisma.feedback.create({
         data: feedbackData,
       });
@@ -149,6 +209,9 @@ export async function getFeedbackByInterviewId(
     strengths: feedback.strengths as string[],
     areasForImprovement: feedback.areasForImprovement as string[],
     finalAssessment: feedback.finalAssessment,
+    atsScore: feedback.atsScore,
+    resumeSuggestions: feedback.resumeSuggestions as string[] | null,
+    jobSuggestions: feedback.jobSuggestions as { title: string; reason: string }[] | null,
     createdAt: feedback.createdAt.toISOString(),
   };
 }
