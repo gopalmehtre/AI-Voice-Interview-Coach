@@ -52,26 +52,27 @@ If you're getting started and need assistance or face any bugs, join our active 
 - Tailwind CSS
 - Vapi AI
 - shadcn/ui
-- Google Gemeni
+- Google Gemini (`@ai-sdk/google`)
+- pdf-parse
 - Zod
 
 ## <a name="features">🔋 Features</a>
 
 👉 **Authentication**: Sign Up and Sign In using password/email authentication handled by Firebase.
 
-👉 **Create Interviews**: Easily generate job interviews with help of Vapi voice assistants and Google Gemini.
+👉 **Customized Interview Generation**: Upload your Resume (PDF) and paste a Job Description to automatically generate highly tailored mock interviews using Google Gemini.
 
-👉 **Get feedback from AI**: Take the interview with AI voice agent, and receive instant feedback based on your conversation.
+👉 **AI Voice Interviews**: Conduct hyper-realistic spoken interviews with a Vapi AI voice agent that listens and responds to your answers in real-time.
 
-👉 **Modern UI/UX**: A sleek and user-friendly interface designed for a great experience.
+👉 **ATS Compatibility Scoring**: Get an instant ATS (Applicant Tracking System) score out of 100 based on how well your uploaded resume matches the job description.
 
-👉 **Interview Page**: Conduct AI-driven interviews with real-time feedback and detailed transcripts.
+👉 **Resume Tailoring Suggestions**: Receive specific, actionable tips to improve your resume for the target role after every interview.
 
-👉 **Dashboard**: Manage and track all your interviews with easy navigation.
+👉 **Job Role Suggestions**: Let the AI suggest alternative job roles you are highly suited for based on the skills found in your resume.
 
-👉 **Responsiveness**: Fully responsive design that works seamlessly across devices.
+👉 **Detailed Feedback**: Receive instant feedback on your communication, technical knowledge, problem-solving, and cultural fit.
 
-and many more, including code architecture and reusability
+👉 **Modern UI/UX**: A sleek, dark-mode focused, user-friendly interface designed for a great experience across devices.
 
 ## <a name="quick-start">🤸 Quick Start</a>
 
